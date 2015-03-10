@@ -1,19 +1,19 @@
 package com.example.jong.fileio;
 
-import android.app.ActionBar;
 import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.os.Environment;
-import android.support.v7.app.ActionBarActivity;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Environment;
+import android.os.Handler;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TabHost;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -22,40 +22,51 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.util.Calendar;
 
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements SensorEventListener {
+    //thread 설정
+    private Handler mHandler;
+    private Runnable mRunnable;
+    private String filename;
+    FileOutputStream outstream;
+    OutputStreamWriter writer;
 
-    EditText edit;
+
+//센서 값 설정
+    float[] acceleration = new float[3];
+    float[] rotationRate = new float[3];
+    float[] magneticField = new float[3];
+//센서 설정
+    private SensorManager mSensorManager;
+    private Sensor mSensor_Acc,mSensor_mag,mSensor_gyro;
+
+    EditText setuptime;
+    EditText sensorinfo;
     String sdCardPath;
+    String contents;
+    int time=0;
+    final Calendar c = Calendar.getInstance();
+    int nowSec=0;
+    int periodsec=10;//기본 10초로 설정
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        TabHost tabs = (TabHost) findViewById(R.id.tabHost);
-        tabs.setup();
+        /////////////time setup////////////////////////////
 
-        TabHost.TabSpec spec = tabs.newTabSpec("tag1");
-        spec.setContent(R.id.tab1);
-        spec.setIndicator("File I/O");
-        tabs.addTab(spec);
-
-        spec = tabs.newTabSpec("tag2");
-        spec.setContent(R.id.tab2);
-        spec.setIndicator("Sensor");
-        tabs.addTab(spec);
-
-        spec = tabs.newTabSpec("tag3");
-        spec.setContent(R.id.tab3);
-        spec.setIndicator("BlueTooth");
-        tabs.addTab(spec);
-        ///////////////////////////TAB 1 Button and var////////////////////////////////////
-        edit = (EditText) findViewById(R.id.editText);
+        /////////////////////////////////////////////////
+        setuptime = (EditText) findViewById(R.id.setuptime);
+        sensorinfo =(EditText)findViewById(R.id.Sensordataeditview);
         findViewById(R.id.Save).setOnClickListener(clickListener);
         findViewById(R.id.load).setOnClickListener(clickListener);
         findViewById(R.id.Loadr).setOnClickListener(clickListener);
         findViewById(R.id.Delete).setOnClickListener(clickListener);
+        findViewById(R.id.stop).setOnClickListener(clickListener);
 
         ////////////////////////////sd Card//////////////////////////////////////////////////
         String ext= Environment.getExternalStorageState();
@@ -65,29 +76,47 @@ public class MainActivity extends Activity {
             sdCardPath=Environment.MEDIA_UNMOUNTED;
         }
 
+        ////////////////////////sensor setup.///////////////////////
+        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        mSensor_Acc = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mSensor_gyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        mSensor_mag = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        ////////////////////////timer///////////////////////////////
+
+
     }
 
-    Button.OnClickListener clickListener = new View.OnClickListener(){
+
+    public Button.OnClickListener clickListener = new View.OnClickListener(){
         public void onClick(View v){
-            switch (v.getId()){
+            switch (v.getId()) {
                 case R.id.Save://Save button
-                    try{
-                        ////////////파일 저장////////////////////////
-                        File dir = new File(sdCardPath + "/dir");
-                        dir.mkdir();
-                        File file = new File(sdCardPath + "/dir/file.txt");
-                        /////////////////////////////////////////////
-                        FileOutputStream fos = new FileOutputStream(file);
-                        //FileOutputStream fos = openFileOutput("test.txt", Context.MODE_WORLD_READABLE);
-                        String str = "Android File IO Test";
-                        fos.write(str.getBytes());
-                        fos.close();
-                        edit.setText("Sucess write file \n 파일 쓰기 성공");
-                    } catch (FileNotFoundException e) {
-                        Log.i("SAVE","Fail write file \n 파일 쓰기 실패");
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    ///////////시작 시간 설정//////////////////
+                    nowSec = c.get(Calendar.SECOND);
+                    ////////////handler//////////////////////////
+
+                    ////////////파일 저장////////////////////////
+                    filename = "test.txt";
+                    String dir = sdCardPath + "/jonghwi/";
+                    File temp = new File(dir);
+                    if (!temp.exists()) {
+                        temp.mkdirs();
                     }
+                    filename = dir + filename;
+                    mHandler = new Handler();
+                    for(int i=0;i<10;i++){
+                    mHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            writeToFile(filename);
+                        }
+                    },1000);}
+
+
+
+
+                    ///////////////////////////////////////////////////////////////////////////
+
                     break;
                 case R.id.load://파일 읽기
                     try{
@@ -95,9 +124,9 @@ public class MainActivity extends Activity {
                         byte[] data = new byte[fis.available()];
                         while (fis.read(data) != -1){}
                         fis.close();
-                        edit.setText(new String(data));
+                        setuptime.setText(new String(data));
                     }catch (FileNotFoundException fileNotFountError) {
-                        edit.setText("File Not Found");
+                        setuptime.setText("File Not Found");
                     }catch(IOException ioe){
                         ioe.printStackTrace();
                     }
@@ -109,25 +138,46 @@ public class MainActivity extends Activity {
                         char[] data = new char[fres.available()];
                         while(reader.read(data) !=-1){}
                         fres.close();
-                        edit.setText(new String(data));
+                        setuptime.setText(new String(data));
                     }catch(Exception e){
                         e.printStackTrace();
                     }
                     break;
                 case R.id.Delete://삭제
                     if(deleteFile("test.txt")){
-                        edit.setText("성공적으로 삭제되었습니다. \n file Delete sucess");
+                        setuptime.setText("성공적으로 삭제되었습니다. \n file Delete sucess");
                     }else{
-                        edit.setText("파일 삭제 실패 하였습니다. \n Fail to Delete file");
+                        setuptime.setText("파일 삭제 실패 하였습니다. \n Fail to Delete file");
                     }
+                    break;
+                case R.id.stop:
                     break;
                 default:
                     break;
-                    }
             }
+        }
     };
+    ////////////////////////////파일쓰기 함수///////////////////////////////////////
+    public void writeToFile(String filename) {
+        File file = new File(filename);
+        try {
+            outstream = new FileOutputStream(file,true);
+            writer = new OutputStreamWriter(outstream);
+                contents=sensorinfo.getText().toString();
 
+                writer.write(contents);
 
+            writer.flush();
+            writer.close();
+
+            Toast.makeText(this, "파일에 쓰기 성공", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            Toast.makeText(this, "파일에 쓰기 실패", Toast.LENGTH_LONG).show();
+        }
+    }
+///////////////////////////////////////////////////////////////////////////////////
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -149,4 +199,70 @@ public class MainActivity extends Activity {
 
         return super.onOptionsItemSelected(item);
     }
+
+    /////////////////////센서가 변할때마다 활동하는 함수////////////////////
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER){
+            acceleration[0] = event.values[0];
+            acceleration[1] = event.values[1];
+            acceleration[2] = event.values[2];
+        }
+        if(event.sensor.getType()==Sensor.TYPE_GYROSCOPE){
+            rotationRate[0] = event.values[0];
+            rotationRate[1] = event.values[1];
+            rotationRate[2] = event.values[2];
+        }
+        if(event.sensor.getType()==Sensor.TYPE_MAGNETIC_FIELD){
+            magneticField[0] = event.values[0];
+            magneticField[1] = event.values[1];
+            magneticField[2] = event.values[2];
+        }
+            StringBuffer strbuf = new StringBuffer();
+        Calendar calendar = Calendar.getInstance();
+        String date = calendar.getTime().toString();
+            strbuf.append(date+"\n\n");
+            strbuf.append("Accelometer Sensor Value" + "\n");
+            strbuf.append(acceleration[0] + "\n");
+            strbuf.append(acceleration[1] + "\n");
+            strbuf.append(acceleration[2] + "\n\n");
+            strbuf.append("Gyroscope Sensor Value" + "\n");
+            strbuf.append(rotationRate[0] + "\n");
+            strbuf.append(rotationRate[1] + "\n");
+            strbuf.append(rotationRate[2] + "\n\n");
+            strbuf.append("Magnetic Sensor Value" + "\n");
+            strbuf.append(magneticField[0] + "\n");
+            strbuf.append(magneticField[1] + "\n");
+            strbuf.append(magneticField[2] + "\n\n");
+            sensorinfo.setText(strbuf.toString());
+
+        }
+
+
+////////////////////////////////////////////////////////////////////////////
+
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        mSensorManager.registerListener(this, mSensor_Acc, SensorManager.SENSOR_DELAY_UI);
+        mSensorManager.registerListener(this, mSensor_mag, SensorManager.SENSOR_DELAY_UI);
+        mSensorManager.registerListener(this, mSensor_gyro, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    @Override
+    protected void onPause() {
+
+        super.onPause();
+
+        mSensorManager.unregisterListener(this);
+    }
 }
+

@@ -13,6 +13,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -23,7 +24,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 
 
 public class MainActivity extends Activity implements SensorEventListener {
@@ -44,7 +47,7 @@ public class MainActivity extends Activity implements SensorEventListener {
     private Sensor mSensor_Acc,mSensor_mag,mSensor_gyro;
 
     EditText setuptime;
-    EditText sensorinfo;
+    TextView sensorinfo;
     String sdCardPath;
     String contents;
     int time=0;
@@ -61,7 +64,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
         /////////////////////////////////////////////////
         setuptime = (EditText) findViewById(R.id.setuptime);
-        sensorinfo =(EditText)findViewById(R.id.Sensordataeditview);
+        sensorinfo =(TextView)findViewById(R.id.Sensordataeditview);
         findViewById(R.id.Save).setOnClickListener(clickListener);
         findViewById(R.id.load).setOnClickListener(clickListener);
         findViewById(R.id.Loadr).setOnClickListener(clickListener);
@@ -120,7 +123,9 @@ public class MainActivity extends Activity implements SensorEventListener {
                     break;
                 case R.id.load://파일 읽기
                     try{
-                        FileInputStream fis = openFileInput("test.txt");
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
+                        String currentDateandTime=sdf.format(new Date());
+                        FileInputStream fis = openFileInput(currentDateandTime+"Sensordata.txt");
                         byte[] data = new byte[fis.available()];
                         while (fis.read(data) != -1){}
                         fis.close();
@@ -222,15 +227,12 @@ public class MainActivity extends Activity implements SensorEventListener {
         Calendar calendar = Calendar.getInstance();
         String date = calendar.getTime().toString();
             strbuf.append(date+"\n\n");
-            strbuf.append("Accelometer Sensor Value" + "\n");
             strbuf.append(acceleration[0] + "\n");
             strbuf.append(acceleration[1] + "\n");
             strbuf.append(acceleration[2] + "\n\n");
-            strbuf.append("Gyroscope Sensor Value" + "\n");
             strbuf.append(rotationRate[0] + "\n");
             strbuf.append(rotationRate[1] + "\n");
             strbuf.append(rotationRate[2] + "\n\n");
-            strbuf.append("Magnetic Sensor Value" + "\n");
             strbuf.append(magneticField[0] + "\n");
             strbuf.append(magneticField[1] + "\n");
             strbuf.append(magneticField[2] + "\n\n");

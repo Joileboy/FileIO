@@ -59,16 +59,18 @@
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true" />
 
-    <EditText
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/Sensordataeditview"
+        android:textSize="10dp"
         android:layout_below="@+id/setuptime"
         android:layout_alignRight="@+id/second"
         android:layout_alignEnd="@+id/second"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
-        android:layout_alignParentBottom="true" />
+        android:layout_alignParentBottom="true"
+        android:gravity="top" />
 
     <TextView
         android:layout_width="wrap_content"
